@@ -1,16 +1,24 @@
-# This is a sample Python script.
+import detector
+from extractor import CodeParser, FunctionExtractor
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    file_path = "C:/Users/varun/Desktop/Refactoring/input.txt"
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    # 1. parses the input file and generates AST
+    parser = CodeParser(file_path)
+
+    # 2. extracting the functions by taking AST as an arg
+    extractor = FunctionExtractor(parser.getASTree())
+    functions = extractor.extractFunctions()
+
+    # 3. Initializing the code smell detector by passing extracted functions to detector
+    detection = detector.CodeSmellDetector(functions)
+
+    # 4. results hold each smell detection returns
+    results = detection.detectCodeSmells()
+
+    if results['excess_parameters']:
+        for fn in results['excess_parameters']:
+            print(f"Function {fn['name']} has {len(fn['parameters'])} parameters, that's not good!!")
+    else:
+        print("Great!! No Long Parameters found!")
