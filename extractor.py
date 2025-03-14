@@ -4,28 +4,28 @@ import os.path
 
 class CodeParser:
     def __init__(self, file_path):
-        self.file_path = file_path
-        self.tree = self.parseCode()
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"{file_path} not found")
 
-    def parseCode(self):
-        if not os.path.exists(self.file_path):
-            raise FileNotFoundError(f"{self.file_path} not found")
+        self.file_path = file_path
+        self.tree = self.parse_input_code()
+
+    def get_ASTree(self):
+        return self.tree
+
+    def parse_input_code(self):
         with open(self.file_path, 'r') as file:
             return ast.parse(file.read())
 
-    def getASTree(self):
-        return self.tree
 
-
-def parameterExtractor(node):
-    """Returns a list of parameters"""
+def parameter_extractor(node):
 
     # node.args.args has all the regular function arguments
     params = [i.arg for i in node.args.args]
 
     # node.args.vararg checks for variable arguments
     if node.args.vararg:
-        params.append('*' + node.args.vararg.arg)  # .arg gets the name of it and adding * in front
+        params.append('*' + node.args.vararg.arg)  # .arg only gets the name so adding * in front
     if node.args.kwarg:
         params.append(('**' + node.args.kwarg.arg))
 
@@ -33,25 +33,34 @@ def parameterExtractor(node):
 
 
 class FunctionExtractor:
-    def __init__(self, as_tree):
+    def __init__(self, as_tree, file_path):
         self.as_tree = as_tree
+        self.file_path = file_path
 
-    def functionDetailsExtractor(self, node):
-        """Extracts details of the functions"""
-        return({
+    def function_details_extractor(self, node):
+        return ({
             'name': node.name,
-            'parameters': parameterExtractor(node),
-            'loc': self.locCalculator(node)
+            'parameters': parameter_extractor(node),
+            'loc': self.loc_calculator(node),
+            'node': node    # storing ast node for duplicate code detection
         })
 
-    def extractFunctions(self):
+    def extract_functions(self):
         functions = []
         for node in ast.walk(self.as_tree):
-            if isinstance(node, ast.FunctionDef):       # looks for function def
-                functions.append(self.functionDetailsExtractor(node))
-
+            if isinstance(node, ast.FunctionDef):  # looks for function def
+                functions.append(self.function_details_extractor(node))
         return functions
 
-    def locCalculator(self, node):
-        """Calculates the number of lines of code in a function."""
-        pass
+    def loc_calculator(self, node):
+        with open(self.file_path, 'r') as f:
+            lines = f.readlines()
+
+        total_loc = lines[node.lineno - 1: node.end_lineno]
+
+        final_loc = [
+            line for line in total_loc
+            if line.strip() and not line.strip().startswith("#") and not line.strip().startswith('"')
+        ]
+
+        return len(final_loc)
