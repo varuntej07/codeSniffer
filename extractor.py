@@ -19,15 +19,14 @@ class CodeParser:
 
 
 def parameter_extractor(node):
-
     # node.args.args has all the regular function arguments
-    params = [i.arg for i in node.args.args]
+    params = [i.arg for i in node.args.args if i.arg != 'self']
 
     # node.args.vararg checks for variable arguments
-    if node.args.vararg:
-        params.append('*' + node.args.vararg.arg)  # .arg only gets the name so adding * in front
-    if node.args.kwarg:
-        params.append(('**' + node.args.kwarg.arg))
+    # if node.args.vararg:
+    #     params.append('*' + node.args.vararg.arg)  # .arg only gets the name so adding * in front
+    # if node.args.kwarg:
+    #     params.append(('**' + node.args.kwarg.arg))
 
     return params
 
@@ -42,13 +41,13 @@ class FunctionExtractor:
             'name': node.name,
             'parameters': parameter_extractor(node),
             'loc': self.loc_calculator(node),
-            'node': node    # storing ast node for duplicate code detection
+            'node': node  # storing ast node for duplicate code detection
         })
 
     def extract_functions(self):
         functions = []
         for node in ast.walk(self.as_tree):
-            if isinstance(node, ast.FunctionDef):  # looks for function def
+            if isinstance(node, ast.FunctionDef) and node.name != '__init__':  # looks for function def
                 functions.append(self.function_details_extractor(node))
         return functions
 
