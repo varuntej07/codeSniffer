@@ -21,13 +21,6 @@ class CodeParser:
 def parameter_extractor(node):
     # node.args.args has all the regular function arguments
     params = [i.arg for i in node.args.args if i.arg != 'self']
-
-    # node.args.vararg checks for variable arguments
-    # if node.args.vararg:
-    #     params.append('*' + node.args.vararg.arg)  # .arg only gets the name so adding * in front
-    # if node.args.kwarg:
-    #     params.append(('**' + node.args.kwarg.arg))
-
     return params
 
 

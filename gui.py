@@ -18,37 +18,50 @@ class CodeSmellGUI:
 
         self.refactor_btn = None
         self.file_path = None
+        self.original_code = None
+        self.semantic_check_btn = None
 
     def open_file(self):
         self.file_path = filedialog.askopenfilename()  # filetypes=[("Python Files", "*.py")]
-        file_path = self.file_path
 
-        if self.refactor_btn:
-            self.refactor_btn.destroy()
-            self.refactor_btn = None
-
-        if not file_path:
+        if not self.file_path:
             return
 
+        self.original_code = self.read_file()
+
+        self.reset_buttons()
+
         try:
-            smells, duplicates = self.code_analyzer(file_path)
+            smells, duplicates = self.code_analyzer()
             self.result_text.delete(1.0, tk.END)  # clear previous results
             self.display_results(smells, duplicates)
+            self.semantic_check_btn = tk.Button(self.root, text='check semantic duplicates', command=self.check_semantic_duplicates)
+            self.semantic_check_btn.pack(pady=10)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    def code_analyzer(self, file_path):
+    def reset_buttons(self):
+        for btn in [self.refactor_btn, self.semantic_check_btn]:
+            if btn:
+                btn.destroy()
+        self.refactor_btn, self.semantic_check_btn = None, None
+
+    def read_file(self):
+        with open(self.file_path, "r") as file:
+            return file.read()
+
+    def code_analyzer(self):
         """Parses, extracts functions, detects code smells"""
-        parser = CodeParser(file_path)
+        parser = CodeParser(self.file_path)
 
         # extracting the functions by taking parsed AST as an arg
-        extractor = FunctionExtractor(parser.get_ASTree(), file_path)
+        extractor = FunctionExtractor(parser.get_ASTree(), self.file_path)
         functions = extractor.extract_functions()
 
         # Initializing the code smell detector by passing extracted functions to detector
         detection = detector.CodeSmellDetector(functions)
 
-        # smells hold each smell detection returns
+        # smells hold two smell detection returns
         smells = detection.detect_code_smells()
 
         duplicates = detection.duplicate_code_detector()
@@ -70,24 +83,37 @@ class CodeSmellGUI:
 
     def display_duplicate_code(self, duplicates):
         if duplicates:
+            self.result_text.insert(tk.END, "\n Structural Duplicates Found:\n")
             for duplicate in duplicates:
                 self.result_text.insert(
                     tk.END,
-                    f"Functions '{duplicate[0]}' and '{duplicate[1]}' has duplicated code! with Jaccard Similarity of {duplicate[2]}\n"
+                    f"Functions '{duplicate[0]}' and '{duplicate[1]}' has similar structure! (Jaccard Similarity: {duplicate[2]})\n"
                 )
             self.refactor_btn = tk.Button(self.root, text='click to refactor',
-                                          command=lambda: refactor_duplicate_code(duplicates, self.file_path))
+                                          command=lambda: refactor_duplicate_code(duplicates, self.original_code))
             self.refactor_btn.pack(pady=10)
         else:
             self.result_text.insert(tk.END, 'Great! No Duplicate code found!!\n')
 
+    def check_semantic_duplicates(self):
+        if not self.original_code:
+            messagebox.showerror("Error!", "Please upload a file first!!")
+            return
 
-def refactor_duplicate_code(duplicates, file_path):
-    with open(file_path, 'r') as f:
-        original_code = f.read()
+        try:
+            openai_client = detector.OpenAIClient()
+            semantic_duplicates = openai_client.detect_semantic_duplicates(self.original_code)
 
+            self.result_text.insert(tk.END, "\nSemantic Duplicates Found:\n" if semantic_duplicates else "\nYour code has no Semantic Duplicate functions!\n")
+            for func1, func2 in semantic_duplicates:
+                self.result_text.insert(tk.END, f"Functions '{func1}' and '{func2}' are performing same thing and are semantically similar!\n")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+def refactor_duplicate_code(duplicates, original_code):
     try:
-        refactored_code = detector.refactor_code_w_openai(original_code, duplicates)
+        openai_client = detector.OpenAIClient()
+        refactored_code = openai_client.refactor_code(original_code, duplicates)
     except ValueError as e:
         messagebox.showerror("Error", str(e))
         return
