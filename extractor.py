@@ -40,7 +40,7 @@ class FunctionExtractor:
     def extract_functions(self):
         functions = []
         for node in ast.walk(self.as_tree):
-            if isinstance(node, ast.FunctionDef) and node.name != '__init__':  # looks for function def
+            if isinstance(node, ast.FunctionDef) and node.name != '__init__':
                 functions.append(self.function_details_extractor(node))
         return functions
 
