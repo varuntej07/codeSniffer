@@ -39,7 +39,7 @@ class CodeSmellGUI:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Varun's Code Smell Detector")
+        self.root.title("Varun' Code Smell Detector")
         self.root.geometry("800x500")
         self.root.configure(bg="#000000")
 
@@ -156,6 +156,8 @@ class CodeSmellGUI:
                 self.result_text.insert(tk.END, f"- {func1} and {func2}\n", "highlight")
         elif result is not None:
             self.result_text.insert(tk.END, "\nNo semantic duplicates found.\n", "success")
+        else:
+            self.result_text.insert(tk.END, "\nError: Unable to retrieve semantic duplicates.\n", "error")
 
     def refactor_duplicate_code(self):
         result = self._run_openai_operation(

@@ -74,7 +74,7 @@ class CodeSmellDetector:
     - Excessive function parameters (over MAX_PARAMS)
     - Duplicate code (using AST-based Jaccard similarity)"""
 
-    def __init__(self, functions, MAX_LOC=15, MAX_PARAMS=3, SIMILARITY_THRESHOLD=0.75, min_complexity_threshold=10):
+    def __init__(self, functions, MAX_LOC=15, MAX_PARAMS=3, SIMILARITY_THRESHOLD=0.75, min_complexity_threshold=2):
         self.functions = functions
         self.MAX_LOC = MAX_LOC
         self.MAX_PARAMS = MAX_PARAMS
@@ -122,7 +122,6 @@ class CodeSmellDetector:
             node = fn.get('node')
             if not node:
                 continue
-
             # Only include non-trivial functions
             if ASTAnalyzer.count_ast_nodes(node) > self.MIN_COMPLEXITY_THRESHOLD:
                 class_name = fn.get('class_name', None)
@@ -139,6 +138,7 @@ class CodeSmellDetector:
 
         # If both are simple wrappers, consider them not duplicates
         if is_wrapper_function(ast1) and is_wrapper_function(ast2):
+            print("They are wrappers!", ast1, ast2)
             return 0
 
         similarity = jaccard_similarity(struct1, struct2)
@@ -172,38 +172,45 @@ class OpenAIClient:
 
     def gpt_prompt(self):
         return """You are given a Python code snippet and a list of structural duplicate function pairs. 
-        Your task is to refactor only these duplicate functions to eliminate duplication while preserving the original functionality. 
-        In particular, for pairs of functions that return the same type of value, aim to create a single function that can serve both purposes by accepting an additional parameter to control the specific behavior, and adjust the original functions to utilize this new function. 
-        Ensure that the refactored code works exactly as the original and follows best practices in Python programming, avoiding new code smells. 
-        Return only the full refactored Python code without any explanations, comments, or extra formatting.
-        The duplicate function pairs are:
-        """
+                Your task is to refactor only these duplicate functions to eliminate duplication while preserving the original functionality.
+                - In particular, for pairs of functions that return the same type of value, aim to create a single function that can serve both purposes by accepting an additional parameter to control the specific behavior, 
+                and just the original functions to utilize this new function. 
+                - Completely eliminate unnecessary wrapper functions that merely call the new function with predefined arguments.
+                - Ensure that the refactored code works exactly as the original and follows best practices in Python programming, avoiding new code smells. 
+                - Return only the full refactored Python code without any explanations, comments, markdown formatting (such as ` ``` `), or extra text.
+                The duplicate function pairs are: 
+                """
 
     def refactor_code(self, original_code, duplicates):
         """Sends structurally duplicated functions to GPT for refactoring."""
         prompt = self.gpt_prompt()
 
         for func1, func2, similarity in duplicates:
-            prompt += f"Function '{func1}' and '{func2}' having Jaccard Similarity: {similarity}\\n"
+            prompt += f"Function '{func1}' and '{func2}' having Jaccard Similarity: {similarity}. "
 
-        prompt += "\\n Original actual executable code: \\n" + original_code
+        prompt += "Original actual executable code:" + original_code
         response = self.get_gpt_response(prompt)
         return format_refactored_output(response)
 
     def detect_semantic_duplicates(self, original_code):
         """Detects semantic duplicates by analyzing the full code with GPT."""
 
-        prompt = f"""You are an expert software refactoring assistant. Analyze the given Python code and find 
-        functions that are **semantically the same** but implemented differently.
-        Provide the output as JSON with key 'semantic_duplicates': [(function1, function2), ...].
-        If none, return {{\"semantic_duplicates\": []}}.
-        Here is the code:\n\n:{original_code}"""
+        prompt = f"""You are an expert software refactoring assistant. Analyze the given Python code and find functions that are **semantically the same** but implemented differently.
+         - Two functions are considered semantically duplicate if they **achieve the same result** using different logic.
+         - Ignore syntax differences like slicing vs loops, recursion vs iteration, or different variable names.
+         - Provide the output as a JSON object with the key "semantic_duplicates" containing a list of function pairs: {{"semantic_duplicates": [[function1, function2], ...]}}.
+         - If there are no semantic duplicates, return an empty list like this: {{"semantic_duplicates": []}}
+         - DO NOT include markdown formatting (no ``` or `json`).** Only return valid JSON, nothing else.
+         - Do NOT include any explanation, only the JSON output.
+            Here is the code to analyze :
+            {original_code}"""
 
         try:
             response = self.get_gpt_response(prompt)
             result = json.loads(response)
             return result.get("semantic_duplicates", [])
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print("JSON decoding error:", {e})
             return []
 
 def format_refactored_output(raw_output):
