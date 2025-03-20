@@ -15,7 +15,8 @@ Found duplicated code? No worries. This tool can refactor duplicate functions an
 If you're curious to check if ya code has bad smells, just clone the repo and run it on ya IDE and get rid of bad smells in ya code.
 
 disclaimer - If you want to check for semantic duplication or refactor the structural duplicates, you'll need an OpenAI API key. 
-Get API key and to set it up, just open the command prompt and enter: **setx OPENAI_API_KEY = your api-key**
+Get API key and to set it up, just open the command prompt and enter: 
+**setx OPENAI_API_KEY your api-key**
 
 If your code smells, don’t panic - just run it through this tool.
 If your code still smells after using this… well, maybe the problem isn’t the code 😬
